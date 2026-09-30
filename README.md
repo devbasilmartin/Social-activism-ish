@@ -18,6 +18,11 @@ pip install -e .            # add [post] for the optional subreddit publisher
 export ANTHROPIC_API_KEY=...
 ```
 
+Reddit blocks logged-out requests from most cloud servers. If `botlab sample` gets a
+403 or 429, create a free "script" app at https://www.reddit.com/prefs/apps and set
+`REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET`. Reading then goes through Reddit's
+official read-only API. No username or password is needed for reading.
+
 ## Usage
 
 ```bash

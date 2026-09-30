@@ -4,8 +4,12 @@ Uses Reddit's public, read-only JSON listing endpoints. No login is needed and
 nothing is written back to Reddit.
 """
 
+import base64
 import json
+import os
+import urllib.parse
 import urllib.request
+from functools import lru_cache
 from pathlib import Path
 
 USER_AGENT = "botlab-research/0.1 (educational bot-manipulation demo)"
@@ -30,8 +34,32 @@ def load_posts(path: Path) -> list[dict]:
     return posts
 
 
+@lru_cache(maxsize=1)
+def _oauth_token() -> str | None:
+    """App-only, read-only OAuth token. Reddit blocks logged-out JSON from most cloud IPs,
+    so when REDDIT_CLIENT_ID/REDDIT_CLIENT_SECRET are set we go through the official API."""
+    cid, secret = os.environ.get("REDDIT_CLIENT_ID"), os.environ.get("REDDIT_CLIENT_SECRET")
+    if not (cid and secret):
+        return None
+    req = urllib.request.Request(
+        "https://www.reddit.com/api/v1/access_token",
+        data=urllib.parse.urlencode({"grant_type": "client_credentials"}).encode(),
+        headers={
+            "User-Agent": USER_AGENT,
+            "Authorization": "Basic " + base64.b64encode(f"{cid}:{secret}".encode()).decode(),
+        },
+    )
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        return json.load(resp)["access_token"]
+
+
 def _get(url: str) -> object:
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    headers = {"User-Agent": USER_AGENT}
+    token = _oauth_token()
+    if token:
+        url = url.replace("https://www.reddit.com/", "https://oauth.reddit.com/").replace("/.json", "/best.json")
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=20) as resp:
         return json.load(resp)
 
