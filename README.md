@@ -36,8 +36,14 @@ botlab generate --subreddit politics --include mutual_aid_anarchist --include ru
 # ...or from your own list of posts: [{"title": "...", "selftext": "...", "url": "..."}]
 botlab generate --posts-file posts.json
 
-# Render an annotated page (every comment badged BOT, techniques explained)
-botlab view            # -> data/threads.html
+# Render the "Spot the Bot" page -> data/threads.html
+# Tabs per post: Guess (real + bot comments shuffled; pick human or bot),
+# Bot thread (annotated), Real thread (from `botlab sample`, if saved).
+botlab view
+botlab view --fragment   # same page without doctype/meta, for publishing as an artifact
+
+# Layout preview with a made-up example post
+open examples/preview.html
 
 # Optional: post one stored thread to your own bot subreddit
 export BOTLAB_SUBREDDIT=YourBotLabSub REDDIT_CLIENT_ID=... REDDIT_CLIENT_SECRET=... \
@@ -52,7 +58,8 @@ botlab publish <thread_id>
 | `botlab/personas.py` | Personas (ideology + voice) and the catalogue of manipulation techniques |
 | `botlab/sources.py` | Reads real posts (a subreddit or the front page) and their top comments from Reddit's public JSON, or a local file |
 | `botlab/generate.py` | Calls Claude to write the thread as structured output; tags techniques and adds annotations |
-| `botlab/viewer.py` | Builds a self-contained annotated HTML page |
+| `botlab/viewer.py` | Builds the self-contained Spot the Bot page: guessing game, bot thread, real thread |
+| `examples/` | Made-up example post and comments for previewing the viewer |
 | `botlab/post.py` | Disclosed publisher, locked to one subreddit you moderate |
 
 ## Guardrails

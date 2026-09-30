@@ -39,6 +39,9 @@ def main() -> None:
     v = sub.add_parser("view", help="render stored threads to an annotated HTML page")
     v.add_argument("--store", type=Path, default=DEFAULT_STORE)
     v.add_argument("--out", type=Path, default=Path("data/threads.html"))
+    v.add_argument("--samples", type=Path, default=Path("data/samples.json"), help="real comments from botlab sample")
+    v.add_argument("--fragment", action="store_true", help="omit doctype/meta, for publishing as an artifact")
+    v.add_argument("--note", default="", help="extra line shown under the intro")
 
     p = sub.add_parser("publish", help="post a stored thread to your own bot subreddit (disclosed)")
     p.add_argument("thread_id")
@@ -71,8 +74,9 @@ def main() -> None:
 
     elif args.cmd == "view":
         threads = generate.load_threads(args.store)
-        viewer.render(threads, args.out)
-        print(f"wrote {args.out} ({len(threads)} threads)")
+        samples = json.loads(args.samples.read_text()) if args.samples.exists() else None
+        viewer.render(threads, args.out, samples, fragment=args.fragment, note=args.note)
+        print(f"wrote {args.out} ({len(threads)} threads, real comments: {'yes' if samples else 'no'})")
 
     elif args.cmd == "publish":
         from . import post
