@@ -12,7 +12,7 @@ import json
 import random
 from pathlib import Path
 
-from .personas import PERSONAS, TECHNIQUES
+from .personas import PERSONAS, TECHNIQUES, VOICES
 
 GUESS_PER_SIDE = 5
 
@@ -35,6 +35,7 @@ CSS = """
   --bot: #fb923c; --bot-soft: #3a2415; --human: #4ade80; --human-soft: #15301f;
   --note: #1a2438; --note-ink: #c3d2f2; --focus: #60a5fa; color-scheme: dark; }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { background: var(--paper); color: var(--ink); font: 15px/1.55 var(--body); }
 main { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; display: grid; gap: 28px; }
 h1 { font: 700 2.1rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
@@ -96,7 +97,7 @@ function botNote(c) {
 }
 function botComment(list, i) {
   const c = list[i], n = el('div', 'c is-bot'), who = el('div', 'who');
-  who.append(el('span', 'pill bot', 'bot'), el('span', null, `u/${c.persona_id} · ${DATA.personas[c.persona_id] || ''}`));
+  who.append(el('span', 'pill bot', 'bot'), el('span', null, `u/${c.persona_id} · ${DATA.personas[c.persona_id] || ''}${c.voice ? ' · ' + c.voice.replace(/_/g, ' ') : ''}`));
   const d = el('details'); d.append(el('summary', 'def', 'How this manipulates'), botNote(c));
   n.append(who, el('p', 'text', c.text), techniques(c), d);
   list.forEach((k, j) => { if (k.parent === i) n.append(botComment(list, j)); });
@@ -139,7 +140,20 @@ DATA.threads.forEach((t, idx) => {
   sec.append(meta, el('h2', null, t.post.title));
   const panes = [];
   if (t.guess.length) { const p = el('div', 'list'); t.guess.forEach(g => p.append(guessItem(g))); panes.push(['Guess', p]); }
-  panes.push(['Bot thread', roots(t.comments, botComment)]);
+  if (t.comments.length) panes.push(['Bot thread', roots(t.comments, botComment)]);
+  if (t.voiceset) {
+    const vs = t.voiceset, p = el('div', 'list');
+    const head = el('div', 'note'); head.append(el('strong', null, 'One message: '), vs.core_message);
+    p.append(head, techniques(vs), el('div', 'def', vs.annotation));
+    vs.variants.forEach(v => {
+      const n = el('div', 'c is-bot'), who = el('div', 'who');
+      who.append(el('span', 'pill bot', 'bot'), el('span', null, v.voice.replace(/_/g, ' ')));
+      n.title = DATA.voices[v.voice] || '';
+      n.append(who, el('p', 'text', v.text));
+      p.append(n);
+    });
+    panes.push(['Many voices', p]);
+  }
   if (t.real.length) panes.push(['Real thread', roots(t.real, realComment)]);
   const tabs = el('div', 'tabs'); tabs.setAttribute('role', 'tablist');
   panes.forEach(([label, pane], k) => {
@@ -167,16 +181,32 @@ def _guess_items(thread: dict, real: list[dict]) -> list[dict]:
         return []
     rng = random.Random(thread["post"]["id"])
     humans = sorted(real, key=lambda c: -(c.get("score") or 0))[:GUESS_PER_SIDE]
+    if not thread["comments"]:
+        return []
     bots = rng.sample(thread["comments"], k=min(GUESS_PER_SIDE, len(thread["comments"])))
     items = [{"bot": False, "text": c["text"]} for c in humans] + [{"bot": True, **c} for c in bots]
     rng.shuffle(items)
     return items
 
 
-def render(threads: list[dict], out: Path, samples: list[dict] | None = None, fragment: bool = False, note: str = "") -> None:
+def render(
+    threads: list[dict],
+    out: Path,
+    samples: list[dict] | None = None,
+    fragment: bool = False,
+    note: str = "",
+    voice_sets: list[dict] | None = None,
+) -> None:
     """Write the page. `fragment=True` omits the doctype/meta lines (for publishing as an Artifact)."""
     real_by_post = {s["id"]: s.get("comments", []) for s in samples or []}
+    voices_by_post = {vs["post"]["id"]: vs for vs in voice_sets or []}
+    # Posts that only have a voice set still get a section.
+    threads = list(threads) + [
+        {"post": vs["post"], "comments": []} for pid, vs in voices_by_post.items()
+        if pid not in {t["post"]["id"] for t in threads}
+    ]
     data = {
+        "voices": VOICES,
         "techniques": TECHNIQUES,
         "personas": {p["id"]: p["ideology"] for p in PERSONAS},
         "threads": [
@@ -185,6 +215,7 @@ def render(threads: list[dict], out: Path, samples: list[dict] | None = None, fr
                 "comments": t["comments"],
                 "real": real_by_post.get(t["post"]["id"], []),
                 "guess": _guess_items(t, real_by_post.get(t["post"]["id"], [])),
+                "voiceset": voices_by_post.get(t["post"]["id"]),
             }
             for t in threads
         ],

@@ -31,6 +31,13 @@ def main() -> None:
     )
     g.add_argument("--store", type=Path, default=DEFAULT_STORE)
 
+    vo = sub.add_parser("voices", help="rewrite one manipulative message per post in every voice")
+    vsrc = vo.add_mutually_exclusive_group(required=True)
+    vsrc.add_argument("--subreddit")
+    vsrc.add_argument("--posts-file", type=Path)
+    vo.add_argument("--limit", type=int, default=3)
+    vo.add_argument("--store", type=Path, default=Path("data/voices.jsonl"))
+
     s = sub.add_parser("sample", help="save real posts and their top comments")
     s.add_argument("--subreddit", default="politics", help="subreddit to sample (top of the day); 'front' for the front page")
     s.add_argument("--posts", type=int, default=10)
@@ -42,6 +49,7 @@ def main() -> None:
     v.add_argument("--out", type=Path, default=Path("data/threads.html"))
     v.add_argument("--samples", type=Path, default=Path("data/samples.json"), help="real comments from botlab sample")
     v.add_argument("--fragment", action="store_true", help="omit doctype/meta, for publishing as an artifact")
+    v.add_argument("--voices", type=Path, default=Path("data/voices.jsonl"), help="output of botlab voices")
     v.add_argument("--note", default="", help="extra line shown under the intro")
 
     p = sub.add_parser("publish", help="post a stored thread to your own bot subreddit (disclosed)")
@@ -66,6 +74,22 @@ def main() -> None:
             generate.append_thread(thread, args.store)
             print(f"{thread['thread_id']}  {len(thread['comments'])} comments  {post['title'][:70]}")
 
+    elif args.cmd == "voices":
+        posts = (
+            sources.fetch_posts(args.subreddit, limit=args.limit)
+            if args.subreddit
+            else sources.load_posts(args.posts_file)[: args.limit]
+        )
+        client = anthropic.Anthropic()
+        for post in posts:
+            try:
+                vs = generate.generate_voices(client, post)
+            except RuntimeError as e:
+                print(f"skip: {e}")
+                continue
+            generate.append_thread(vs, args.store)
+            print(f"{vs['set_id']}  {len(vs['variants'])} voices  {post['title'][:70]}")
+
     elif args.cmd == "sample":
         posts = sources.sample(None if args.subreddit == "front" else args.subreddit, args.posts, args.comments)
         args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -76,7 +100,8 @@ def main() -> None:
     elif args.cmd == "view":
         threads = generate.load_threads(args.store)
         samples = json.loads(args.samples.read_text()) if args.samples.exists() else None
-        viewer.render(threads, args.out, samples, fragment=args.fragment, note=args.note)
+        voice_sets = generate.load_threads(args.voices)
+        viewer.render(threads, args.out, samples, fragment=args.fragment, note=args.note, voice_sets=voice_sets)
         print(f"wrote {args.out} ({len(threads)} threads, real comments: {'yes' if samples else 'no'})")
 
     elif args.cmd == "publish":

@@ -35,6 +35,10 @@ botlab generate --posts-file data/samples.json --limit 10
 # Generate threads for today's top r/politics posts
 botlab generate --subreddit politics --limit 3
 
+# One manipulative message per post, rewritten in every voice (lowercase, phone typos,
+# Facebook uncle, Gen Z, essayist, ...) -> data/voices.jsonl, shown as a "Many voices" tab
+botlab voices --posts-file data/samples.json --limit 3
+
 # Always include specific personas (repeatable); the rest are picked at random
 botlab generate --subreddit politics --include mutual_aid_anarchist --include rust_belt_dad
 
@@ -60,7 +64,7 @@ botlab publish <thread_id>
 
 | File | What it does |
 |---|---|
-| `botlab/personas.py` | Personas (ideology + voice) and the catalogue of manipulation techniques |
+| `botlab/personas.py` | Personas (ideology), writing voices, and the catalogue of manipulation techniques |
 | `botlab/sources.py` | Reads real posts (a subreddit or the front page) and their top comments from Reddit's public JSON, or a local file |
 | `botlab/generate.py` | Calls Claude to write the thread as structured output; tags techniques and adds annotations |
 | `botlab/viewer.py` | Builds the self-contained Spot the Bot page: guessing game, bot thread, real thread |

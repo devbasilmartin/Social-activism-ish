@@ -75,3 +75,17 @@ def persona_by_id(pid: str) -> dict:
         if p["id"] == pid:
             return p
     raise KeyError(pid)
+
+
+# Writing registers, independent of ideology. Mixing these with personas is what
+# makes a bot network read like many different people instead of one writer.
+VOICES = {
+    "lowercase_terse": "all lowercase, one or two short lines, no ending punctuation, dry",
+    "phone_typer": "typed fast on a phone: a couple of typos, missing apostrophes, autocorrect slips, run-on sentence",
+    "facebook_uncle": "Random CAPS for emphasis, ellipses..., a little old-fashioned, signs off with a folksy line",
+    "gen_z": "gen z internet slang (fr, ngl, lowkey, it's giving), ironic detachment, maybe one emoji",
+    "earnest_essayist": "long, earnest, several paragraphs, 'I want to push back gently here', careful caveats",
+    "sarcastic_redditor": "classic reddit snark: 'ah yes', 'username checks out' energy, rhetorical questions",
+    "blue_collar_plain": "plain spoken, practical, mentions work or bills, short declarative sentences",
+    "academic_lite": "semi-formal, uses words like 'framework' and 'incentives', cites vague research",
+}

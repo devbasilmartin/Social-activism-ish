@@ -9,7 +9,7 @@ from pathlib import Path
 import anthropic
 from pydantic import BaseModel
 
-from .personas import PERSONAS, TECHNIQUES, persona_by_id
+from .personas import PERSONAS, TECHNIQUES, VOICES, persona_by_id
 
 MODEL = "claude-opus-5-5"
 
@@ -35,6 +35,7 @@ fake personal claims.
 
 class Comment(BaseModel):
     persona_id: str
+    voice: str
     parent: int  # index of the comment being replied to, or -1 for top-level
     text: str
     techniques: list[str]
@@ -47,6 +48,7 @@ class Thread(BaseModel):
 
 def _prompt(post: dict, personas: list[dict], n_comments: int) -> str:
     techniques = "\n".join(f"- {k}: {v}" for k, v in TECHNIQUES.items())
+    voices = "\n".join(f"- {k}: {v}" for k, v in VOICES.items())
     persona_lines = "\n".join(
         f"- {p['id']} ({p['ideology']}): {p['voice']} Favors: {', '.join(p['favored'])}"
         for p in personas
@@ -58,6 +60,9 @@ def _prompt(post: dict, personas: list[dict], n_comments: int) -> str:
         f"Link: {post['url']}\n\n"
         f"Personas:\n{persona_lines}\n\n"
         f"Techniques:\n{techniques}\n\n"
+        f"Voices (writing registers):\n{voices}\n\n"
+        f"Give each persona one voice and keep it consistent; spread the voices out so the "
+        f"thread reads like different people. Set `voice` to the key used.\n\n"
         f"Write about {n_comments} comments. Use `parent` = -1 for top-level comments, "
         f"otherwise the 0-based index of an earlier comment in the list."
     )
@@ -98,6 +103,7 @@ def generate_thread(
                 **c.model_dump(),
                 "parent": c.parent if 0 <= c.parent < i else -1,
                 "techniques": [t for t in c.techniques if t in TECHNIQUES],
+                "voice": c.voice if c.voice in VOICES else "",
             }
         )
     return {
@@ -108,6 +114,61 @@ def generate_thread(
         "post": post,
         "personas": [p["id"] for p in personas],
         "comments": comments,
+    }
+
+
+class VoiceVariant(BaseModel):
+    voice: str
+    text: str
+
+
+class VoiceSet(BaseModel):
+    core_message: str
+    techniques: list[str]
+    annotation: str
+    variants: list[VoiceVariant]
+
+
+VOICES_SYSTEM = SYSTEM + """
+
+For this task, write ONE manipulative message responding to the post, then rewrite that same \
+message in every listed voice. The point is to show readers that one talking point can be \
+disguised as many different kinds of people."""
+
+
+def generate_voices(client: anthropic.Anthropic, post: dict) -> dict:
+    """One manipulative message about the post, rewritten in every voice."""
+    techniques = "\n".join(f"- {k}: {v}" for k, v in TECHNIQUES.items())
+    voices = "\n".join(f"- {k}: {v}" for k, v in VOICES.items())
+    response = client.beta.messages.parse(
+        model=MODEL,
+        max_tokens=16000,
+        betas=["server-side-fallback-2026-07-01"],
+        fallbacks="default",
+        output_config={"effort": "medium"},
+        system=VOICES_SYSTEM,
+        messages=[{"role": "user", "content": (
+            f"Post from r/{post['subreddit']}:\nTitle: {post['title']}\n"
+            f"Body: {post['selftext'] or '(link post)'}\n\n"
+            f"Techniques:\n{techniques}\n\nVoices:\n{voices}\n\n"
+            "State the core message in one plain sentence, list the techniques it uses, write a "
+            "one-to-two sentence annotation of how it manipulates, then give one variant per voice."
+        )}],
+        output_format=VoiceSet,
+    )
+    if response.stop_reason == "refusal":
+        raise RuntimeError(f"Model declined post {post['id']}: {response.stop_details}")
+    vs = response.parsed_output
+    return {
+        "set_id": uuid.uuid4().hex[:12],
+        "synthetic": True,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "model": response.model,
+        "post": post,
+        "core_message": vs.core_message,
+        "techniques": [t for t in vs.techniques if t in TECHNIQUES],
+        "annotation": vs.annotation,
+        "variants": [v.model_dump() for v in vs.variants if v.voice in VOICES],
     }
 
 
