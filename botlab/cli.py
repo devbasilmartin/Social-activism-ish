@@ -1,4 +1,5 @@
 import argparse
+import json
 from pathlib import Path
 
 import anthropic
@@ -30,6 +31,11 @@ def main() -> None:
     )
     g.add_argument("--store", type=Path, default=DEFAULT_STORE)
 
+    s = sub.add_parser("sample", help="save real front-page posts and their top comments")
+    s.add_argument("--posts", type=int, default=10)
+    s.add_argument("--comments", type=int, default=20)
+    s.add_argument("--out", type=Path, default=Path("data/samples.json"))
+
     v = sub.add_parser("view", help="render stored threads to an annotated HTML page")
     v.add_argument("--store", type=Path, default=DEFAULT_STORE)
     v.add_argument("--out", type=Path, default=Path("data/threads.html"))
@@ -55,6 +61,13 @@ def main() -> None:
                 continue
             generate.append_thread(thread, args.store)
             print(f"{thread['thread_id']}  {len(thread['comments'])} comments  {post['title'][:70]}")
+
+    elif args.cmd == "sample":
+        posts = sources.sample_front_page(args.posts, args.comments)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(posts, indent=2))
+        n = sum(len(p["comments"]) for p in posts)
+        print(f"wrote {args.out}: {len(posts)} posts, {n} comments")
 
     elif args.cmd == "view":
         threads = generate.load_threads(args.store)

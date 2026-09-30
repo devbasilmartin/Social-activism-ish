@@ -21,6 +21,12 @@ export ANTHROPIC_API_KEY=...
 ## Usage
 
 ```bash
+# Save real front-page posts and their top comments (no usernames) to data/samples.json
+botlab sample --posts 10 --comments 20
+
+# Generate bot threads for those same posts, to compare real vs. bot side by side
+botlab generate --posts-file data/samples.json --limit 10
+
 # Generate threads for today's top r/politics posts
 botlab generate --subreddit politics --limit 3
 
@@ -44,7 +50,7 @@ botlab publish <thread_id>
 | File | What it does |
 |---|---|
 | `botlab/personas.py` | Personas (ideology + voice) and the catalogue of manipulation techniques |
-| `botlab/sources.py` | Reads real posts from Reddit's public JSON listings, or a local file |
+| `botlab/sources.py` | Reads real posts (a subreddit or the front page) and their top comments from Reddit's public JSON, or a local file |
 | `botlab/generate.py` | Calls Claude to write the thread as structured output; tags techniques and adds annotations |
 | `botlab/viewer.py` | Builds a self-contained annotated HTML page |
 | `botlab/post.py` | Disclosed publisher, locked to one subreddit you moderate |
