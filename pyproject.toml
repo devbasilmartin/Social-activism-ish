@@ -3,7 +3,7 @@ name = "botlab"
 version = "0.1.0"
 description = "Demonstrates how easily LLM bots can produce manipulative political comments, with every technique annotated."
 requires-python = ">=3.10"
-dependencies = ["anthropic", "pydantic>=2"]
+dependencies = ["anthropic", "pydantic>=2", "playwright"]
 
 [project.optional-dependencies]
 post = ["praw"]

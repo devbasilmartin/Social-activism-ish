@@ -110,3 +110,28 @@ def draft(thread: dict, voice_set: dict | None = None) -> dict:
     lines += ["---", "", "^(🤖 Everything quoted above is AI-generated, for a demo on online manipulation.)"]
     body = "\n".join(lines).replace("This thread is locked; discuss it in the weekly thread.", "Discuss below.")
     return {"title": f"[BOT THREAD] {thread['post']['title']}"[:300], "body": body[:39000]}
+
+
+QUIZ_BODY = (
+    "Some of the numbered comments in this image are from real people on r/{sub} (names redacted). "
+    "The rest were written by AI personas using manipulation tactics. Guess in the comments which "
+    "numbers are real, then check the pinned answer key."
+)
+
+
+def quiz_title(thread: dict) -> str:
+    return f"[SPOT THE BOT] Which of these comments are real? \"{thread['post']['title']}\""[:300]
+
+
+def publish_quiz(thread: dict, image: str, answers: str) -> str:
+    """Image post for guessing: left unlocked, answer key pinned as a spoiler comment."""
+    target = os.environ["BOTLAB_SUBREDDIT"]
+    reddit = _reddit()
+    sub = reddit.subreddit(target)
+    me = reddit.user.me().name.lower()
+    if me not in {m.name.lower() for m in sub.moderator()}:
+        raise SystemExit(f"u/{me} is not a moderator of r/{target}; refusing to post.")
+    submission = sub.submit_image(quiz_title(thread), image)
+    key = submission.reply(QUIZ_BODY.format(sub=thread["post"]["subreddit"]) + "\n\n" + answers)
+    key.mod.distinguish(sticky=True)
+    return submission.permalink

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import anthropic
 
-from . import generate, post, sources, viewer
+from . import generate, post, screenshot, sources, viewer
 
 
 def run(
@@ -49,9 +49,26 @@ def run(
             print(f"  skip: {e}")
 
     chosen = threads[:n_publish]
+    real_by_post = {p["id"]: p.get("comments", []) for p in samples}
+    sub_label = f"r/{os.environ['BOTLAB_SUBREDDIT']}" if os.environ.get("BOTLAB_SUBREDDIT") else "Spot the Bot"
+    quizzes = {}
+    for t in chosen:
+        q = screenshot.build_quiz(t, real_by_post.get(t["post"]["id"], []))
+        if not any(not it["bot"] for it in q["items"]):
+            continue  # no real comments to mix in
+        img = screenshot.render_png(q, day / f"quiz-{t['post']['id']}.png",
+                                    f"Guess in the comments: which numbers are real people? · {sub_label}")
+        quizzes[t["post"]["id"]] = (str(img), screenshot.answer_key(q))
+        print(f"quiz image: {img}")
+
     drafts = []
     if mode == "draft":
         drafts = [post.draft(t, voice_sets.get(t["post"]["id"])) for t in chosen]
+        for t, dr in zip(chosen, drafts):
+            if t["post"]["id"] in quizzes:
+                img, key = quizzes[t["post"]["id"]]
+                dr["quiz"] = {"title": post.quiz_title(t), "image": img,
+                              "comment": post.QUIZ_BODY.format(sub=t["post"]["subreddit"]) + "\n\n" + key}
         md = "\n\n=====\n\n".join(f"TITLE: {d['title']}\n\n{d['body']}" for d in drafts)
         (day / "draft.md").write_text(md)
         print(f"drafted {len(drafts)} post(s): {day / 'draft.md'}")
@@ -64,4 +81,6 @@ def run(
     if mode == "auto":
         for t in chosen:
             print("posted:", post.publish(t, voice_sets.get(t["post"]["id"])))
+            if t["post"]["id"] in quizzes:
+                print("posted quiz:", post.publish_quiz(t, *quizzes[t["post"]["id"]]))
     return page

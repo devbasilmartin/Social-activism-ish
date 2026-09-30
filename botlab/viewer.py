@@ -7,6 +7,7 @@ Each post gets up to three tabs:
 - Real thread: the real top comments, when samples for that post were saved.
 """
 
+import base64
 import html
 import json
 import random
@@ -80,6 +81,7 @@ button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .draft textarea { width: 100%; font: .82rem/1.45 var(--mono); color: var(--ink); background: var(--paper);
   border: 1px solid var(--rule); border-radius: 4px; padding: 8px; resize: vertical; }
 .draft .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.quiz { width: 100%; max-width: 100%; border-radius: 6px; border: 1px solid var(--rule); }
 .copy { font: 600 .8rem var(--display); letter-spacing: .05em; text-transform: uppercase; cursor: pointer;
   background: var(--bot); color: var(--card); border: 0; border-radius: 4px; padding: 6px 12px; }
 .empty { color: var(--muted); font-style: italic; margin: 0; }
@@ -146,7 +148,9 @@ DATA.drafts.forEach((d, i) => {
   const box = el('section', 'draft');
   box.append(el('h2', null, `Draft post ${DATA.drafts.length > 1 ? i + 1 : ''} · ready to paste`),
              el('p', 'def', 'Create a text post in your subreddit, then paste these. The labels are already included.'));
-  [['Title', d.title, 3], ['Body (markdown)', d.body, 10]].forEach(([label, text, rows], k) => {
+  const fields = [['Title', d.title, 3], ['Body (markdown)', d.body, 10]];
+  if (d.quiz) fields.push(['Quiz post title', d.quiz.title, 3], ['Quiz answer-key comment (pin it)', d.quiz.comment, 8]);
+  fields.forEach(([label, text, rows], k) => {
     const id = `draft-${i}-${k}`, row = el('div', 'row'), lab = el('label', null, label), ta = el('textarea');
     lab.htmlFor = id; ta.id = id; ta.readOnly = true; ta.rows = rows; ta.value = text;
     const b = el('button', 'copy', 'Copy'); b.type = 'button';
@@ -156,6 +160,11 @@ DATA.drafts.forEach((d, i) => {
       try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
     });
     row.append(lab, b); box.append(row, ta);
+    if (d.quiz && k === 1) {
+      box.append(el('h2', null, 'Quiz image post'),
+                 el('p', 'def', 'Press and hold the image to save it, then make an image post with the title below and pin the answer-key comment.'));
+      const img = el('img', 'quiz'); img.src = d.quiz.src; img.alt = 'Spot the Bot quiz: numbered real and AI comments'; box.append(img);
+    }
   });
   main.append(box);
 });
@@ -231,8 +240,14 @@ def render(
         {"post": vs["post"], "comments": []} for pid, vs in voices_by_post.items()
         if pid not in {t["post"]["id"] for t in threads}
     ]
+    drafts = [dict(d) for d in drafts or []]
+    for d in drafts:
+        if d.get("quiz"):
+            q = dict(d["quiz"])
+            q["src"] = "data:image/png;base64," + base64.b64encode(Path(q.pop("image")).read_bytes()).decode()
+            d["quiz"] = q
     data = {
-        "drafts": drafts or [],
+        "drafts": drafts,
         "voices": VOICES,
         "techniques": TECHNIQUES,
         "personas": {p["id"]: p["ideology"] for p in PERSONAS},

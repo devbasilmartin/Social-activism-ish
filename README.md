@@ -77,6 +77,14 @@ Two modes, set with `--mode` or the `BOTLAB_MODE` environment variable (default 
 - **auto**: posts to your subreddit through the API (needs approved access, see below).
   Falls back to draft if the Reddit credentials aren't set.
 
+Each run also renders a **quiz image** (`quiz-<post>.png`): a Reddit-style screenshot of the
+real headline with 4 real and 4 bot comments, numbered and shuffled, for people to guess in the
+comments. Usernames are redacted (never random realistic names that could belong to someone),
+votes and ages are randomized, and the image carries a labeled band plus a diagonal
+"AI-GENERATED DEMO" watermark so a crop can't pass as a real thread. The answer key uses
+spoiler tags. In draft mode the image and answer key are on the page; in auto mode the image
+is posted (unlocked, for guessing) with the answer key pinned.
+
 Everything lands in `data/daily/<date>/` (samples, threads, voices, draft, `spot-the-bot.html`).
 
 ### Posting to your own subreddit
@@ -106,6 +114,7 @@ Recommended setup:
 | `examples/` | Made-up example post and comments for previewing the viewer |
 | `botlab/post.py` | Disclosed publisher, locked to one subreddit you moderate |
 | `botlab/daily.py` | The unattended daily run |
+| `botlab/screenshot.py` | Watermarked "which comments are real?" quiz image |
 
 ## Guardrails
 
