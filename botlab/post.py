@@ -89,3 +89,24 @@ def publish(thread: dict, voice_set: dict | None = None) -> str:
         posted.append(parent.reply(body))
     submission.mod.lock()
     return submission.permalink
+
+
+def draft(thread: dict, voice_set: dict | None = None) -> dict:
+    """A single self-post you can paste into your subreddit by hand: intro, the bot thread as
+    labeled quotes, and the voice set. Posting it yourself still carries the same labels."""
+    comments = thread["comments"]
+
+    def depth(i: int) -> int:
+        d = 0
+        while comments[i]["parent"] != -1:
+            i, d = comments[i]["parent"], d + 1
+        return d
+
+    lines = [_selftext(thread, voice_set), "", "---", "", "**The bot thread:**", ""]
+    for i, c in enumerate(comments):
+        q = ">" * (depth(i) + 1) + " "
+        text = _header(c) + c["text"] + f"\n\n*Tactic: {', '.join(c['techniques']) or 'none'}*"
+        lines += [q + line if line else q.rstrip() for line in text.split("\n")] + [""]
+    lines += ["---", "", "^(🤖 Everything quoted above is AI-generated, for a demo on online manipulation.)"]
+    body = "\n".join(lines).replace("This thread is locked; discuss it in the weekly thread.", "Discuss below.")
+    return {"title": f"[BOT THREAD] {thread['post']['title']}"[:300], "body": body[:39000]}

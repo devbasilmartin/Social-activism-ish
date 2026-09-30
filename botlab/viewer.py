@@ -74,6 +74,14 @@ button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   background: var(--card); color: var(--ink); border: 1px solid var(--rule); border-radius: 4px; padding: 6px 14px; }
 .verdict { font: 600 .85rem var(--display); letter-spacing: .04em; text-transform: uppercase; }
 .verdict.right { color: var(--human); } .verdict.wrong { color: var(--bot); }
+.draft { background: var(--card); border: 1px dashed var(--bot); border-radius: 6px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
+.draft h2 { font: 600 1.2rem var(--display); letter-spacing: .03em; text-transform: uppercase; margin: 0; }
+.draft label { font: 600 .75rem var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.draft textarea { width: 100%; font: .82rem/1.45 var(--mono); color: var(--ink); background: var(--paper);
+  border: 1px solid var(--rule); border-radius: 4px; padding: 8px; resize: vertical; }
+.draft .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.copy { font: 600 .8rem var(--display); letter-spacing: .05em; text-transform: uppercase; cursor: pointer;
+  background: var(--bot); color: var(--card); border: 0; border-radius: 4px; padding: 6px 12px; }
 .empty { color: var(--muted); font-style: italic; margin: 0; }
 """
 
@@ -134,6 +142,23 @@ function roots(list, render) {
 }
 
 const main = document.getElementById('posts');
+DATA.drafts.forEach((d, i) => {
+  const box = el('section', 'draft');
+  box.append(el('h2', null, `Draft post ${DATA.drafts.length > 1 ? i + 1 : ''} · ready to paste`),
+             el('p', 'def', 'Create a text post in your subreddit, then paste these. The labels are already included.'));
+  [['Title', d.title, 3], ['Body (markdown)', d.body, 10]].forEach(([label, text, rows], k) => {
+    const id = `draft-${i}-${k}`, row = el('div', 'row'), lab = el('label', null, label), ta = el('textarea');
+    lab.htmlFor = id; ta.id = id; ta.readOnly = true; ta.rows = rows; ta.value = text;
+    const b = el('button', 'copy', 'Copy'); b.type = 'button';
+    b.addEventListener('click', () => {
+      const done = () => { b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1500); };
+      const fallback = () => { ta.focus(); ta.select(); b.textContent = 'Selected, copy it'; };
+      try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+    });
+    row.append(lab, b); box.append(row, ta);
+  });
+  main.append(box);
+});
 DATA.threads.forEach((t, idx) => {
   const sec = el('section', 'post'), meta = el('div', 'meta', `r/${t.post.subreddit}`);
   if (t.post.permalink) { meta.append(' · '); const a = el('a', null, 'original post'); a.href = t.post.permalink; meta.append(a); }
@@ -196,6 +221,7 @@ def render(
     fragment: bool = False,
     note: str = "",
     voice_sets: list[dict] | None = None,
+    drafts: list[dict] | None = None,
 ) -> None:
     """Write the page. `fragment=True` omits the doctype/meta lines (for publishing as an Artifact)."""
     real_by_post = {s["id"]: s.get("comments", []) for s in samples or []}
@@ -206,6 +232,7 @@ def render(
         if pid not in {t["post"]["id"] for t in threads}
     ]
     data = {
+        "drafts": drafts or [],
         "voices": VOICES,
         "techniques": TECHNIQUES,
         "personas": {p["id"]: p["ideology"] for p in PERSONAS},

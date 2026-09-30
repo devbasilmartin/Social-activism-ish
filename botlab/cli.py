@@ -56,7 +56,8 @@ def main() -> None:
     d.add_argument("--subreddit", default="politics")
     d.add_argument("--posts", type=int, default=3)
     d.add_argument("--comments", type=int, default=20, help="real comments to sample per post")
-    d.add_argument("--publish", type=int, default=1, help="threads to post to BOTLAB_SUBREDDIT (0 to skip)")
+    d.add_argument("--publish", type=int, default=1, help="threads to post or draft (0 to skip)")
+    d.add_argument("--mode", choices=["auto", "draft"], help="auto: post to BOTLAB_SUBREDDIT; draft: write it for you to post. Default $BOTLAB_MODE or draft")
     d.add_argument("--include", action="append", default=[], choices=[p["id"] for p in PERSONAS], metavar="PERSONA")
 
     p = sub.add_parser("publish", help="post a stored thread to your own bot subreddit (disclosed)")
@@ -114,7 +115,7 @@ def main() -> None:
     elif args.cmd == "daily":
         from . import daily
 
-        daily.run(args.subreddit, args.posts, args.comments, args.publish, include=args.include)
+        daily.run(args.subreddit, args.posts, args.comments, args.publish, include=args.include, mode=args.mode)
 
     elif args.cmd == "publish":
         from . import post

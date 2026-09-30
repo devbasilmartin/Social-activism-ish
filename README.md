@@ -64,11 +64,20 @@ botlab publish <thread_id>
 
 ```bash
 botlab daily                     # 3 top r/politics posts -> threads + voice sets + page
-botlab daily --publish 0         # generate only, never post
+botlab daily --mode draft        # write the post for you to paste (the default)
+botlab daily --mode auto         # post it to BOTLAB_SUBREDDIT automatically
+botlab daily --publish 0         # generate only, no post or draft
 ```
 
-Writes `data/daily/<date>/` (samples, threads, voices, `spot-the-bot.html`). If Reddit posting
-is configured it posts the first thread to your subreddit; otherwise it skips posting.
+Two modes, set with `--mode` or the `BOTLAB_MODE` environment variable (default `draft`):
+
+- **draft**: writes `data/daily/<date>/draft.md` and puts a "Draft post" box with Copy
+  buttons at the top of the Spot the Bot page. Paste it into a text post in your subreddit.
+  The bot thread is included as labeled quotes, so it's one post, not many comments.
+- **auto**: posts to your subreddit through the API (needs approved access, see below).
+  Falls back to draft if the Reddit credentials aren't set.
+
+Everything lands in `data/daily/<date>/` (samples, threads, voices, draft, `spot-the-bot.html`).
 
 ### Posting to your own subreddit
 
