@@ -26,8 +26,8 @@ official read-only API. No username or password is needed for reading.
 ## Usage
 
 ```bash
-# Save real front-page posts and their top comments (no usernames) to data/samples.json
-botlab sample --posts 10 --comments 20
+# Save today's top r/politics posts and their top comments (no usernames) to data/samples.json
+botlab sample --posts 10 --comments 20              # --subreddit front for the front page
 
 # Generate bot threads for those same posts, to compare real vs. bot side by side
 botlab generate --posts-file data/samples.json --limit 10

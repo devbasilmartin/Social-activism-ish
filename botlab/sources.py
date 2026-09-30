@@ -148,8 +148,9 @@ def is_noise(text: str) -> bool:
     return bool(NOISE.search(text)) or bool(re.fullmatch(r"\S*https?://\S+", text.strip()))
 
 
-def rss_front_page(limit: int = 10) -> list[dict]:
-    root = _get_rss(f"https://www.reddit.com/.rss?limit={limit}")
+def rss_listing(subreddit: str | None = None, limit: int = 10) -> list[dict]:
+    base = f"https://www.reddit.com/r/{subreddit}/top/.rss?t=day&" if subreddit else "https://www.reddit.com/.rss?"
+    root = _get_rss(f"{base}limit={limit}")
     posts = []
     for e in root.findall("a:entry", ATOM)[:limit]:
         link = e.find("a:link", ATOM).get("href")
@@ -182,13 +183,14 @@ def rss_comments(permalink: str, limit: int = 20) -> list[dict]:
     return out
 
 
-def sample_front_page(n_posts: int = 10, n_comments: int = 20) -> list[dict]:
+def sample(subreddit: str | None = None, n_posts: int = 10, n_comments: int = 20) -> list[dict]:
+    """Real posts plus top comments from a subreddit's top-of-day, or the front page if None."""
     if _oauth_token():
-        posts = fetch_front_page(n_posts)
+        posts = fetch_posts(subreddit, limit=n_posts) if subreddit else fetch_front_page(n_posts)
         for p in posts:
             p["comments"] = fetch_comments(p["id"], n_comments)
         return posts
-    posts = rss_front_page(n_posts)
+    posts = rss_listing(subreddit, n_posts)
     for i, p in enumerate(posts, 1):
         print(f"  [{i}/{len(posts)}] r/{p['subreddit']}: {p['title'][:60]}")
         p["comments"] = rss_comments(p["permalink"], n_comments)
