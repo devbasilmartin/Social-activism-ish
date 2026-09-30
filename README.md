@@ -69,6 +69,18 @@ botlab daily --mode auto         # post it to BOTLAB_SUBREDDIT automatically
 botlab daily --publish 0         # generate only, no post or draft
 ```
 
+No API key? Run it in three steps from a Claude Code session, which writes the bot comments
+itself under your Claude plan:
+
+```bash
+botlab daily --step prepare      # sample posts, write data/daily/<date>/task.md
+# ...the Claude Code session follows task.md and writes data/daily/<date>/authored.json
+botlab daily --step finish       # validate, build quiz images, draft/post, render the page
+```
+
+The task file carries the same rules and prompts the API path sends, and `finish` checks the
+JSON against the same schema, so both paths produce the same output.
+
 Two modes, set with `--mode` or the `BOTLAB_MODE` environment variable (default `draft`):
 
 - **draft**: writes `data/daily/<date>/draft.md` and puts a "Draft post" box with Copy

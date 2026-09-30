@@ -95,9 +95,13 @@ def generate_thread(
     )
     if response.stop_reason == "refusal":
         raise RuntimeError(f"Model declined post {post['id']}: {response.stop_details}")
+    return thread_record(post, personas, response.parsed_output, response.model)
 
+
+def thread_record(post: dict, personas: list[dict], parsed: Thread, model: str) -> dict:
+    """Normalize a parsed Thread (from the API or written by a Claude Code session) into a stored record."""
     comments = []
-    for i, c in enumerate(response.parsed_output.comments):
+    for i, c in enumerate(parsed.comments):
         comments.append(
             {
                 **c.model_dump(),
@@ -110,7 +114,7 @@ def generate_thread(
         "thread_id": uuid.uuid4().hex[:12],
         "synthetic": True,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "model": response.model,
+        "model": model,
         "post": post,
         "personas": [p["id"] for p in personas],
         "comments": comments,
@@ -136,10 +140,20 @@ message in every listed voice. The point is to show readers that one talking poi
 disguised as many different kinds of people."""
 
 
-def generate_voices(client: anthropic.Anthropic, post: dict) -> dict:
-    """One manipulative message about the post, rewritten in every voice."""
+def _voices_prompt(post: dict) -> str:
     techniques = "\n".join(f"- {k}: {v}" for k, v in TECHNIQUES.items())
     voices = "\n".join(f"- {k}: {v}" for k, v in VOICES.items())
+    return (
+        f"Post from r/{post['subreddit']}:\nTitle: {post['title']}\n"
+        f"Body: {post['selftext'] or '(link post)'}\n\n"
+        f"Techniques:\n{techniques}\n\nVoices:\n{voices}\n\n"
+        "State the core message in one plain sentence, list the techniques it uses, write a "
+        "one-to-two sentence annotation of how it manipulates, then give one variant per voice."
+    )
+
+
+def generate_voices(client: anthropic.Anthropic, post: dict) -> dict:
+    """One manipulative message about the post, rewritten in every voice."""
     response = client.beta.messages.parse(
         model=MODEL,
         max_tokens=16000,
@@ -147,23 +161,20 @@ def generate_voices(client: anthropic.Anthropic, post: dict) -> dict:
         fallbacks="default",
         output_config={"effort": "medium"},
         system=VOICES_SYSTEM,
-        messages=[{"role": "user", "content": (
-            f"Post from r/{post['subreddit']}:\nTitle: {post['title']}\n"
-            f"Body: {post['selftext'] or '(link post)'}\n\n"
-            f"Techniques:\n{techniques}\n\nVoices:\n{voices}\n\n"
-            "State the core message in one plain sentence, list the techniques it uses, write a "
-            "one-to-two sentence annotation of how it manipulates, then give one variant per voice."
-        )}],
+        messages=[{"role": "user", "content": _voices_prompt(post)}],
         output_format=VoiceSet,
     )
     if response.stop_reason == "refusal":
         raise RuntimeError(f"Model declined post {post['id']}: {response.stop_details}")
-    vs = response.parsed_output
+    return voiceset_record(post, response.parsed_output, response.model)
+
+
+def voiceset_record(post: dict, vs: VoiceSet, model: str) -> dict:
     return {
         "set_id": uuid.uuid4().hex[:12],
         "synthetic": True,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "model": response.model,
+        "model": model,
         "post": post,
         "core_message": vs.core_message,
         "techniques": [t for t in vs.techniques if t in TECHNIQUES],
