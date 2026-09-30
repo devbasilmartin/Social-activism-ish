@@ -5,8 +5,13 @@ nothing is written back to Reddit.
 """
 
 import base64
+import html
 import json
 import os
+import re
+import time
+import urllib.error
+import xml.etree.ElementTree as ET
 import urllib.parse
 import urllib.request
 from functools import lru_cache
@@ -102,8 +107,89 @@ def _post(d: dict) -> dict:
     }
 
 
+# --- RSS fallback -----------------------------------------------------------
+# Reddit's public RSS feeds still work from cloud IPs without an app, but they are
+# rate limited hard, carry no scores, and flatten reply nesting.
+
+ATOM = {"a": "http://www.w3.org/2005/Atom"}
+RSS_DELAY = 8  # seconds between requests
+SKIP_AUTHORS = {"/u/AutoModerator", "/u/reddit"}
+_last_rss = 0.0
+
+
+def _get_rss(url: str) -> ET.Element:
+    global _last_rss
+    for attempt in range(6):
+        time.sleep(max(0.0, _last_rss + RSS_DELAY - time.time()))
+        _last_rss = time.time()
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                return ET.fromstring(resp.read())
+        except urllib.error.HTTPError as e:
+            if e.code != 429:
+                raise
+            time.sleep(min(15 * (attempt + 1), 60))
+    raise RuntimeError(f"Reddit kept rate-limiting {url}")
+
+
+def _text(entry: ET.Element) -> str:
+    raw = html.unescape(entry.findtext("a:content", "", ATOM))
+    raw = re.sub(r"<br\s*/?>|</p>", "\n", raw)
+    text = re.sub(r"<[^>]+>", "", raw)
+    return re.sub(r"\n{3,}", "\n\n", html.unescape(text)).strip()
+
+
+NOISE = re.compile(r"i am a bot|remember the human|this action was performed automatically", re.I)
+
+
+def is_noise(text: str) -> bool:
+    """Mod/bot boilerplate and bare links make useless guessing-game material."""
+    return bool(NOISE.search(text)) or bool(re.fullmatch(r"\S*https?://\S+", text.strip()))
+
+
+def rss_front_page(limit: int = 10) -> list[dict]:
+    root = _get_rss(f"https://www.reddit.com/.rss?limit={limit}")
+    posts = []
+    for e in root.findall("a:entry", ATOM)[:limit]:
+        link = e.find("a:link", ATOM).get("href")
+        posts.append(
+            {
+                "id": e.findtext("a:id", "", ATOM).removeprefix("t3_"),
+                "subreddit": e.find("a:category", ATOM).get("term"),
+                "title": html.unescape(e.findtext("a:title", "", ATOM)),
+                "selftext": "",
+                "url": link,
+                "permalink": link,
+            }
+        )
+    return posts
+
+
+def rss_comments(permalink: str, limit: int = 20) -> list[dict]:
+    root = _get_rss(permalink.rstrip("/") + f"/.rss?sort=top&limit={limit + 5}")
+    out = []
+    for e in root.findall("a:entry", ATOM):
+        if not e.findtext("a:id", "", ATOM).startswith("t1_"):
+            continue  # the post itself
+        if e.findtext("a:author/a:name", "", ATOM) in SKIP_AUTHORS:
+            continue
+        text = _text(e)
+        if text and text not in ("[deleted]", "[removed]") and not is_noise(text):
+            out.append({"score": None, "parent": -1, "text": text})
+        if len(out) >= limit:
+            break
+    return out
+
+
 def sample_front_page(n_posts: int = 10, n_comments: int = 20) -> list[dict]:
-    posts = fetch_front_page(n_posts)
-    for p in posts:
-        p["comments"] = fetch_comments(p["id"], n_comments)
+    if _oauth_token():
+        posts = fetch_front_page(n_posts)
+        for p in posts:
+            p["comments"] = fetch_comments(p["id"], n_comments)
+        return posts
+    posts = rss_front_page(n_posts)
+    for i, p in enumerate(posts, 1):
+        print(f"  [{i}/{len(posts)}] r/{p['subreddit']}: {p['title'][:60]}")
+        p["comments"] = rss_comments(p["permalink"], n_comments)
     return posts
