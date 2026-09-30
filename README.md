@@ -60,6 +60,32 @@ export BOTLAB_SUBREDDIT=YourBotLabSub REDDIT_CLIENT_ID=... REDDIT_CLIENT_SECRET=
 botlab publish <thread_id>
 ```
 
+## Daily run
+
+```bash
+botlab daily                     # 3 top r/politics posts -> threads + voice sets + page
+botlab daily --publish 0         # generate only, never post
+```
+
+Writes `data/daily/<date>/` (samples, threads, voices, `spot-the-bot.html`). If Reddit posting
+is configured it posts the first thread to your subreddit; otherwise it skips posting.
+
+### Posting to your own subreddit
+
+Reddit's Responsible Builder Policy (Nov 2025) requires approved API access for any bot.
+Apply describing exactly what this does: one subreddit you moderate, one bot account,
+reads top r/politics posts once a day, posts a few labeled threads, no voting, no activity
+anywhere else. Once approved, set `BOTLAB_SUBREDDIT`, `REDDIT_CLIENT_ID`,
+`REDDIT_CLIENT_SECRET`, `REDDIT_USERNAME`, `REDDIT_PASSWORD` and `pip install -e .[post]`.
+
+Recommended setup:
+- One clearly named bot account (e.g. u/SpotTheBotLab) with a bio saying it's an automated
+  demo. Not one account per persona: persona and voice go in each comment's header.
+- Subreddit sidebar says everything is AI-generated; only mods and the bot can post;
+  bot threads are locked; a pinned weekly thread for human discussion.
+- Posts name the source subreddit and headline but don't link the real thread, and
+  real users' comments are never reposted (the guessing game stays on the Spot the Bot page).
+
 ## Layout
 
 | File | What it does |
@@ -70,6 +96,7 @@ botlab publish <thread_id>
 | `botlab/viewer.py` | Builds the self-contained Spot the Bot page: guessing game, bot thread, real thread |
 | `examples/` | Made-up example post and comments for previewing the viewer |
 | `botlab/post.py` | Disclosed publisher, locked to one subreddit you moderate |
+| `botlab/daily.py` | The unattended daily run |
 
 ## Guardrails
 
@@ -77,6 +104,8 @@ These are part of the design, so the project demonstrates manipulation without d
 
 - Every stored record has `"synthetic": true` and technique annotations.
 - The publisher posts only to `BOTLAB_SUBREDDIT`, and only if the account moderates it.
+  Every comment carries a `[bot · persona · voice]` header, threads are locked after posting,
+  and real threads are named but never linked.
   It adds a disclosure footer to every comment and a `[BOT THREAD]` title prefix.
 - Prompts steer away from false factual claims about named real people, and away
   from slurs and harassment. The manipulation is kept to rhetoric and framing.

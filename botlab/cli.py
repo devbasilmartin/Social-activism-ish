@@ -52,6 +52,13 @@ def main() -> None:
     v.add_argument("--voices", type=Path, default=Path("data/voices.jsonl"), help="output of botlab voices")
     v.add_argument("--note", default="", help="extra line shown under the intro")
 
+    d = sub.add_parser("daily", help="sample, generate, render the page, and post to your bot subreddit if configured")
+    d.add_argument("--subreddit", default="politics")
+    d.add_argument("--posts", type=int, default=3)
+    d.add_argument("--comments", type=int, default=20, help="real comments to sample per post")
+    d.add_argument("--publish", type=int, default=1, help="threads to post to BOTLAB_SUBREDDIT (0 to skip)")
+    d.add_argument("--include", action="append", default=[], choices=[p["id"] for p in PERSONAS], metavar="PERSONA")
+
     p = sub.add_parser("publish", help="post a stored thread to your own bot subreddit (disclosed)")
     p.add_argument("thread_id")
     p.add_argument("--store", type=Path, default=DEFAULT_STORE)
@@ -103,6 +110,11 @@ def main() -> None:
         voice_sets = generate.load_threads(args.voices)
         viewer.render(threads, args.out, samples, fragment=args.fragment, note=args.note, voice_sets=voice_sets)
         print(f"wrote {args.out} ({len(threads)} threads, real comments: {'yes' if samples else 'no'})")
+
+    elif args.cmd == "daily":
+        from . import daily
+
+        daily.run(args.subreddit, args.posts, args.comments, args.publish, include=args.include)
 
     elif args.cmd == "publish":
         from . import post
