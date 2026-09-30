@@ -57,6 +57,16 @@ PERSONAS = [
         "voice": "Formal-ish, invokes community and faith, calm tone that makes extreme claims sound reasonable.",
         "favored": ["motte_and_bailey", "fabricated_credential", "cherry_picked_stat"],
     },
+    {
+        "id": "mutual_aid_anarchist",
+        "ideology": "anarchist",
+        "voice": (
+            "Nonbinary (they/them), vegan, firmly ACAB. Lowercase, blunt, anti-cop and anti-state, "
+            "mentions organizing a mutual aid fridge and tenant union. Scorns liberals as much as "
+            "conservatives and says voting won't save you."
+        ),
+        "favored": ["demobilization", "in_group_signaling", "outrage_bait", "fabricated_anecdote"],
+    },
 ]
 
 
