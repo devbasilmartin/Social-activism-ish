@@ -9,7 +9,7 @@ from pathlib import Path
 import anthropic
 from pydantic import BaseModel
 
-from .personas import PERSONAS, TECHNIQUES
+from .personas import PERSONAS, TECHNIQUES, persona_by_id
 
 MODEL = "claude-opus-5-5"
 
@@ -63,8 +63,21 @@ def _prompt(post: dict, personas: list[dict], n_comments: int) -> str:
     )
 
 
-def generate_thread(client: anthropic.Anthropic, post: dict, n_personas: int = 4, n_comments: int = 10) -> dict:
-    personas = random.sample(PERSONAS, k=min(n_personas, len(PERSONAS)))
+def pick_personas(n: int, include: list[str] | None = None) -> list[dict]:
+    """Always include the named personas, then fill up to n at random from the rest."""
+    fixed = [persona_by_id(pid) for pid in dict.fromkeys(include or [])]
+    rest = [p for p in PERSONAS if p not in fixed]
+    return fixed + random.sample(rest, k=max(0, min(n - len(fixed), len(rest))))
+
+
+def generate_thread(
+    client: anthropic.Anthropic,
+    post: dict,
+    n_personas: int = 4,
+    n_comments: int = 10,
+    include: list[str] | None = None,
+) -> dict:
+    personas = pick_personas(n_personas, include)
     response = client.beta.messages.parse(
         model=MODEL,
         max_tokens=16000,

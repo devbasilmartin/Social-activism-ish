@@ -4,6 +4,7 @@ from pathlib import Path
 import anthropic
 
 from . import generate, sources, viewer
+from .personas import PERSONAS
 
 DEFAULT_STORE = Path("data/threads.jsonl")
 
@@ -19,6 +20,14 @@ def main() -> None:
     g.add_argument("--limit", type=int, default=3)
     g.add_argument("--comments", type=int, default=10)
     g.add_argument("--personas", type=int, default=4)
+    g.add_argument(
+        "--include",
+        action="append",
+        default=[],
+        choices=[p["id"] for p in PERSONAS],
+        metavar="PERSONA",
+        help="persona id to always include (repeatable); others are filled in at random",
+    )
     g.add_argument("--store", type=Path, default=DEFAULT_STORE)
 
     v = sub.add_parser("view", help="render stored threads to an annotated HTML page")
@@ -40,7 +49,7 @@ def main() -> None:
         client = anthropic.Anthropic()
         for post in posts:
             try:
-                thread = generate.generate_thread(client, post, args.personas, args.comments)
+                thread = generate.generate_thread(client, post, args.personas, args.comments, args.include)
             except RuntimeError as e:
                 print(f"skip: {e}")
                 continue

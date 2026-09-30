@@ -24,6 +24,9 @@ export ANTHROPIC_API_KEY=...
 # Generate threads for today's top r/politics posts
 botlab generate --subreddit politics --limit 3
 
+# Always include specific personas (repeatable); the rest are picked at random
+botlab generate --subreddit politics --include mutual_aid_anarchist --include rust_belt_dad
+
 # ...or from your own list of posts: [{"title": "...", "selftext": "...", "url": "..."}]
 botlab generate --posts-file posts.json
 
