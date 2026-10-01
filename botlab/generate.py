@@ -9,7 +9,7 @@ from pathlib import Path
 import anthropic
 from pydantic import BaseModel
 
-from .personas import PERSONAS, TECHNIQUES, VOICES, persona_by_id
+from .personas import PERSONAS, SETTINGS, TECHNIQUES, VOICES, persona_by_id
 
 MODEL = "claude-opus-5-5"
 
@@ -46,30 +46,47 @@ class Thread(BaseModel):
     comments: list[Comment]
 
 
-def _prompt(post: dict, personas: list[dict], n_comments: int) -> str:
+def _persona_line(p: dict) -> str:
+    line = f"- {p['id']} ({p['ideology']}): {p['style']}"
+    if p["positions"]:
+        line += " Positions they hold and argue for: " + " ".join(p["positions"])
+    if p["favored"]:
+        line += f" Favors: {', '.join(p['favored'])}."
+    if p["voice"]:
+        line += f" Always writes in the `{p['voice']}` voice."
+    return line
+
+
+def _extra() -> str:
+    extra = SETTINGS.get("extra_instructions", "").strip()
+    return f"\n\nAdditional instructions from the project owner:\n{extra}" if extra else ""
+
+
+def _prompt(post: dict, personas: list[dict], n_comments: int | None = None) -> str:
+    n_comments = n_comments or SETTINGS["comments_per_thread"]
     techniques = "\n".join(f"- {k}: {v}" for k, v in TECHNIQUES.items())
     voices = "\n".join(f"- {k}: {v}" for k, v in VOICES.items())
-    persona_lines = "\n".join(
-        f"- {p['id']} ({p['ideology']}): {p['voice']} Favors: {', '.join(p['favored'])}"
-        for p in personas
-    )
+    persona_lines = "\n".join(_persona_line(p) for p in personas)
     return (
         f"Post from r/{post['subreddit']}:\n"
         f"Title: {post['title']}\n"
         f"Body: {post['selftext'] or '(link post)'}\n"
         f"Link: {post['url']}\n\n"
         f"Personas:\n{persona_lines}\n\n"
+        f"Each persona argues from its listed positions; keep its opinions consistent with them.\n\n"
         f"Techniques:\n{techniques}\n\n"
         f"Voices (writing registers):\n{voices}\n\n"
-        f"Give each persona one voice and keep it consistent; spread the voices out so the "
-        f"thread reads like different people. Set `voice` to the key used.\n\n"
+        f"Give each persona one voice and keep it consistent (use its fixed voice if it has one); "
+        f"spread the voices out so the thread reads like different people. Set `voice` to the key used.\n\n"
         f"Write about {n_comments} comments. Use `parent` = -1 for top-level comments, "
         f"otherwise the 0-based index of an earlier comment in the list."
+        f"{_extra()}"
     )
 
 
-def pick_personas(n: int, include: list[str] | None = None) -> list[dict]:
+def pick_personas(n: int | None = None, include: list[str] | None = None) -> list[dict]:
     """Always include the named personas, then fill up to n at random from the rest."""
+    n = n or SETTINGS["personas_per_thread"]
     fixed = [persona_by_id(pid) for pid in dict.fromkeys(include or [])]
     rest = [p for p in PERSONAS if p not in fixed]
     return fixed + random.sample(rest, k=max(0, min(n - len(fixed), len(rest))))
@@ -78,8 +95,8 @@ def pick_personas(n: int, include: list[str] | None = None) -> list[dict]:
 def generate_thread(
     client: anthropic.Anthropic,
     post: dict,
-    n_personas: int = 4,
-    n_comments: int = 10,
+    n_personas: int | None = None,
+    n_comments: int | None = None,
     include: list[str] | None = None,
 ) -> dict:
     personas = pick_personas(n_personas, include)
@@ -149,6 +166,7 @@ def _voices_prompt(post: dict) -> str:
         f"Techniques:\n{techniques}\n\nVoices:\n{voices}\n\n"
         "State the core message in one plain sentence, list the techniques it uses, write a "
         "one-to-two sentence annotation of how it manipulates, then give one variant per voice."
+        f"{_extra()}"
     )
 
 

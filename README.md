@@ -60,6 +60,23 @@ export BOTLAB_SUBREDDIT=YourBotLabSub REDDIT_CLIENT_ID=... REDDIT_CLIENT_SECRET=
 botlab publish <thread_id>
 ```
 
+## Customizing the bots
+
+Everything about the bots lives in **`botlab/profiles.toml`**, a plain settings file with
+comments explaining each field:
+
+- `[settings]`: `extra_instructions` (free text added to every prompt), comments per thread,
+  personas per thread.
+- `[[persona]]` blocks: `id`, `ideology`, `style`, `positions` (the opinions the bot argues
+  for), `techniques` (tactics it leans on) and an optional fixed `voice`.
+- `[voices]`: writing styles any persona can use.
+- `[techniques]`: tactic names and the descriptions readers see on the page.
+
+Run `botlab profiles` to check the file and list what's in it. Typos (an unknown technique or
+voice, a missing quote) fail with a message naming the line or persona. Set `BOTLAB_PROFILES`
+to use a different file. The daily schedule pulls the latest commit, so an edit made in the
+GitHub app applies to the next run.
+
 ## Daily run
 
 ```bash
@@ -119,7 +136,8 @@ Recommended setup:
 
 | File | What it does |
 |---|---|
-| `botlab/personas.py` | Personas (ideology), writing voices, and the catalogue of manipulation techniques |
+| `botlab/profiles.toml` | **Edit me:** personas, their opinions, writing voices, techniques, global instructions |
+| `botlab/personas.py` | Loads and checks `profiles.toml` |
 | `botlab/sources.py` | Reads real posts (a subreddit or the front page) and their top comments from Reddit's public JSON, or a local file |
 | `botlab/generate.py` | Calls Claude to write the thread as structured output; tags techniques and adds annotations |
 | `botlab/viewer.py` | Builds the self-contained Spot the Bot page: guessing game, bot thread, real thread |

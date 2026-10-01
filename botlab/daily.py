@@ -88,7 +88,7 @@ def prepare(
     n_comments: int = 20,
     out_dir: Path = Path("data/daily"),
     include: list[str] | None = None,
-    n_bot_comments: int = 10,
+    n_bot_comments: int | None = None,
 ) -> Path:
     """Sample posts and write task.md: the exact instructions the API path would send,
     for the Claude Code session to follow and answer in authored.json."""
@@ -120,7 +120,7 @@ def prepare(
         generate.VOICES_SYSTEM[len(generate.SYSTEM):].strip(),
     ]
     for p in samples:
-        personas = generate.pick_personas(4, include)
+        personas = generate.pick_personas(None, include)
         parts += [
             "",
             f"## Post `{p['id']}`",

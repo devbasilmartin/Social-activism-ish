@@ -19,8 +19,8 @@ def main() -> None:
     src.add_argument("--subreddit", help="pull top posts from this subreddit, e.g. politics")
     src.add_argument("--posts-file", type=Path, help="local JSON list of posts")
     g.add_argument("--limit", type=int, default=3)
-    g.add_argument("--comments", type=int, default=10)
-    g.add_argument("--personas", type=int, default=4)
+    g.add_argument("--comments", type=int, help="bot comments per thread (default: profiles.toml)")
+    g.add_argument("--personas", type=int, help="personas per thread (default: profiles.toml)")
     g.add_argument(
         "--include",
         action="append",
@@ -66,6 +66,8 @@ def main() -> None:
         help="all: generate through the API (needs ANTHROPIC_API_KEY). Without a key: 'prepare' writes "
         "today's task.md, the Claude Code session writes authored.json, then 'finish' builds everything",
     )
+
+    sub.add_parser("profiles", help="check profiles.toml and list personas, voices and techniques")
 
     p = sub.add_parser("publish", help="post a stored thread to your own bot subreddit (disclosed)")
     p.add_argument("thread_id")
@@ -128,6 +130,18 @@ def main() -> None:
             daily.finish(args.subreddit, args.publish, mode=args.mode)
         else:
             daily.run(args.subreddit, args.posts, args.comments, args.publish, include=args.include, mode=args.mode)
+
+    elif args.cmd == "profiles":
+        from .personas import PROFILES_PATH, SETTINGS, TECHNIQUES, VOICES
+
+        print(f"{PROFILES_PATH}: OK")
+        print(f"settings: {SETTINGS}")
+        for p in PERSONAS:
+            print(f"- {p['id']} ({p['ideology']}) voice={p['voice'] or 'any'} techniques={', '.join(p['favored'])}")
+            for pos in p["positions"]:
+                print(f"    · {pos}")
+        print(f"voices: {', '.join(VOICES)}")
+        print(f"techniques: {', '.join(TECHNIQUES)}")
 
     elif args.cmd == "publish":
         from . import post
